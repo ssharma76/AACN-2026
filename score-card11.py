@@ -271,7 +271,7 @@ elif st.session_state.view_mode == "display":
       unsafe_allow_html=True,
   )
 
-  @st.fragment(run_every=40)
+  @st.fragment(run_every=180)
   def render_live_screen():
     df, pp_df, ann_df = fetch_live_data()
 
