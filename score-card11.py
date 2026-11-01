@@ -425,7 +425,7 @@ elif st.session_state.view_mode == "admin":
         st.dataframe(res_df, use_container_width=True)
 
 # =========================================================================
-# 3. LIVE FULL-SCREEN DISPLAY (SEAMLESS FIT ON DESKTOP & FLUID ON MOBILE)
+# 3. LIVE DISPLAY (RESPONSIVE AUTO-OPTIMIZED VIEWPORT)
 # =========================================================================
 elif st.session_state.view_mode == "display":
     with st.sidebar:
@@ -1031,7 +1031,7 @@ elif st.session_state.view_mode == "display":
         display: inline-block;
     }}
 
-    /* ---------------- RESULTS SCROLLER (STRETCHES TO BOTTOM) ---------------- */
+    /* ---------------- RESULTS SCROLLER (STRETCHES TO BOTTOM & AUTO-SCROLL SAFE) ---------------- */
     .winner-scroll-box {{
         flex: 1 1 0;
         height: auto;
@@ -1041,7 +1041,7 @@ elif st.session_state.view_mode == "display":
         position: relative;
         background: #f1f5f9;
         padding: 6px;
-        scroll-behavior: smooth;
+        scroll-behavior: auto !important; /* Prevents scroll cancellation freeze */
     }}
     .winner-scroll-box::-webkit-scrollbar {{
         width: 6px;
@@ -1456,8 +1456,10 @@ elif st.session_state.view_mode == "display":
         fetchMeerutWeatherAQI();
         setInterval(fetchMeerutWeatherAQI, 300000);
 
+        // Continuous JavaScript auto-scroll with safe bottom-reset buffer
         const scrollBox = document.getElementById('resultsScrollBox');
         let isUserInteracting = false;
+        let isResetting = false;
         let resumeTimer = null;
 
         if (scrollBox) {{
@@ -1475,10 +1477,20 @@ elif st.session_state.view_mode == "display":
             }}, {{ passive: true }});
 
             function autoScroll() {{
-                if (!isUserInteracting && scrollBox) {{
-                    scrollBox.scrollTop += 1;
-                    if (scrollBox.scrollTop >= (scrollBox.scrollHeight - scrollBox.clientHeight - 1)) {{
-                        scrollBox.scrollTop = 0;
+                if (!isUserInteracting && !isResetting && scrollBox) {{
+                    const maxScroll = scrollBox.scrollHeight - scrollBox.clientHeight;
+                    if (maxScroll > 0 && scrollBox.scrollTop >= maxScroll - 4) {{
+                        isResetting = true;
+                        // Pause at bottom for 1.5s so last record can be read
+                        setTimeout(() => {{
+                            scrollBox.scrollTop = 0;
+                            // Pause at top for 0.8s before resuming downward scroll
+                            setTimeout(() => {{
+                                isResetting = false;
+                            }}, 800);
+                        }}, 1500);
+                    }} else {{
+                        scrollBox.scrollTop += 1;
                     }}
                 }}
                 requestAnimationFrame(autoScroll);
@@ -1509,7 +1521,7 @@ elif st.session_state.view_mode == "display":
 </body>
 </html>
 """
-        # Height is set to 750px without scrolling for desktop; responsive CSS handles mobile
+        # Height is locked at 750px for desktop; responsive CSS handles mobile
         components.html(full_html, height=750, scrolling=False)
 
     render_live_screen()
