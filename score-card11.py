@@ -905,7 +905,7 @@ elif st.session_state.view_mode == "display":
     .sub-video-stage {{
         position: relative;
         width: 100%;
-        padding-top: 48%; /* Scaled for complete medal tally visibility */
+        padding-top: 48%;
         background: #000000;
         overflow: hidden;
         flex-shrink: 0;
@@ -1034,14 +1034,14 @@ elif st.session_state.view_mode == "display":
     /* ---------------- RESULTS SCROLLER (STRETCHES TO BOTTOM & AUTO-SCROLL SAFE) ---------------- */
     .winner-scroll-box {{
         flex: 1 1 0;
-        height: auto;
-        min-height: 0;
-        overflow-y: auto;
+        min-height: 250px;
+        max-height: 100%;
+        overflow-y: scroll !important;
         overflow-x: hidden;
         position: relative;
         background: #f1f5f9;
         padding: 6px;
-        scroll-behavior: auto !important; /* Prevents scroll cancellation freeze */
+        scroll-behavior: auto !important;
     }}
     .winner-scroll-box::-webkit-scrollbar {{
         width: 6px;
@@ -1456,46 +1456,67 @@ elif st.session_state.view_mode == "display":
         fetchMeerutWeatherAQI();
         setInterval(fetchMeerutWeatherAQI, 300000);
 
-        // Continuous JavaScript auto-scroll with safe bottom-reset buffer
+        // Sub-pixel Precision Auto-Scroll Engine
         const scrollBox = document.getElementById('resultsScrollBox');
         let isUserInteracting = false;
         let isResetting = false;
         let resumeTimer = null;
+        let scrollPos = 0;
+        let lastFrameTime = performance.now();
 
         if (scrollBox) {{
             scrollBox.addEventListener('mouseenter', () => {{ isUserInteracting = true; }});
-            scrollBox.addEventListener('mouseleave', () => {{ isUserInteracting = false; }});
+            scrollBox.addEventListener('mouseleave', () => {{ 
+                isUserInteracting = false; 
+                scrollPos = scrollBox.scrollTop;
+            }});
             scrollBox.addEventListener('touchstart', () => {{ isUserInteracting = true; }}, {{ passive: true }});
             scrollBox.addEventListener('touchend', () => {{
                 clearTimeout(resumeTimer);
-                resumeTimer = setTimeout(() => {{ isUserInteracting = false; }}, 2500);
+                resumeTimer = setTimeout(() => {{ 
+                    isUserInteracting = false; 
+                    scrollPos = scrollBox.scrollTop;
+                }}, 2000);
             }});
             scrollBox.addEventListener('wheel', () => {{
                 isUserInteracting = true;
+                scrollPos = scrollBox.scrollTop;
                 clearTimeout(resumeTimer);
-                resumeTimer = setTimeout(() => {{ isUserInteracting = false; }}, 3000);
+                resumeTimer = setTimeout(() => {{ 
+                    isUserInteracting = false; 
+                    scrollPos = scrollBox.scrollTop;
+                }}, 2500);
             }}, {{ passive: true }});
 
-            function autoScroll() {{
+            function stepScroll(now) {{
+                const dt = (now - lastFrameTime) / 1000;
+                lastFrameTime = now;
+
                 if (!isUserInteracting && !isResetting && scrollBox) {{
                     const maxScroll = scrollBox.scrollHeight - scrollBox.clientHeight;
-                    if (maxScroll > 0 && scrollBox.scrollTop >= maxScroll - 4) {{
-                        isResetting = true;
-                        // Pause at bottom for 1.5s so last record can be read
-                        setTimeout(() => {{
-                            scrollBox.scrollTop = 0;
-                            // Pause at top for 0.8s before resuming downward scroll
+
+                    if (maxScroll > 10) {{
+                        scrollPos += 35 * dt;
+
+                        if (scrollPos >= maxScroll - 2) {{
+                            isResetting = true;
+                            scrollBox.scrollTop = maxScroll;
                             setTimeout(() => {{
-                                isResetting = false;
-                            }}, 800);
-                        }}, 1500);
-                    }} else {{
-                        scrollBox.scrollTop += 1;
+                                scrollPos = 0;
+                                scrollBox.scrollTop = 0;
+                                setTimeout(() => {{
+                                    lastFrameTime = performance.now();
+                                    isResetting = false;
+                                }}, 800);
+                            }}, 1800);
+                        }} else {{
+                            scrollBox.scrollTop = scrollPos;
+                        }}
                     }}
                 }}
-                requestAnimationFrame(autoScroll);
+                requestAnimationFrame(stepScroll);
             }}
-            requestAnimationFrame(autoScroll);
+            requestAnimationFrame(stepScroll);
         }}
 
         const tickerBox = document.getElementById('tickerBox');
@@ -1521,7 +1542,6 @@ elif st.session_state.view_mode == "display":
 </body>
 </html>
 """
-        # Height is locked at 750px for desktop; responsive CSS handles mobile
         components.html(full_html, height=750, scrolling=False)
 
     render_live_screen()
